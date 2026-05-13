@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
     const { data, error } =
       await supabase
         .from("table_list3")
-        .select("*");
+        .select("table_name");
 
     if (error) {
       console.error("SUPABASE ERROR:", error);
