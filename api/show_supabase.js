@@ -10,9 +10,22 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
 
-  // GET only
-  if (req.method !== "GET") {
+  // =========================
+  // CORS FIX (WAJIB)
+  // =========================
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
+  // handle preflight request
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  // =========================
+  // ONLY GET
+  // =========================
+  if (req.method !== "GET") {
     return res.status(405).json({
       message: "Method not allowed",
     });
@@ -24,21 +37,17 @@ module.exports = async (req, res) => {
       await supabase.rpc("get_tables");
 
     if (error) {
-
       console.error(error);
-
       return res.status(500).json({
         message: "DB error",
       });
     }
 
-    res.json(data);
+    return res.json(data);
 
   } catch (err) {
-
     console.error(err);
-
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
