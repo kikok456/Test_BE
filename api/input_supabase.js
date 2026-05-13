@@ -12,9 +12,20 @@ const supabase = createClient(
 );
 
 
-
-// UPLOAD API
 module.exports = async (req, res) => {
+
+  // =========================
+  // CORS
+  // =========================
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // handle preflight
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
 
   // hanya POST
   if (req.method !== "POST") {
