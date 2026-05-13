@@ -35,7 +35,9 @@ module.exports = async (req, res) => {
   try {
 
     const { data, error } =
-      await supabase.rpc("get_tables");
+      await supabase
+        .from("table_list")
+        .select("*");
 
     if (error) {
       console.error("SUPABASE ERROR:", error);
