@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
   // CORS
   // =========================
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   // handle preflight
@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  // hanya POST
+
   if (req.method !== "GET") {
     return res.status(405).json({
       message: "Method not allowed",
