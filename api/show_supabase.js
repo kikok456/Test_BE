@@ -36,12 +36,15 @@ module.exports = async (req, res) => {
     const { data, error } =
       await supabase.rpc("get_tables");
 
-    if (error) {
-      console.error(error);
-      return res.status(500).json({
-        message: "DB error",
-      });
-    }
+if (error) {
+  console.error("SUPABASE ERROR:", error);
+
+  return res.status(500).json({
+    message: "DB error",
+    error: error.message,
+    details: error,
+  });
+}
 
     return res.json(data);
 
