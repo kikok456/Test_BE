@@ -1,7 +1,8 @@
 require("dotenv").config();
 
-const { createClient } =
-  require("@supabase/supabase-js");
+const {
+  createClient,
+} = require("@supabase/supabase-js");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -10,18 +11,31 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
 
-  // =========================
+  // =========================================
   // CORS
-  // =========================
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  // =========================================
+
+  res.setHeader(
+    "Access-Control-Allow-Origin",
+    "*"
+  );
+
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "POST, OPTIONS"
+  );
+
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type"
+  );
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   if (req.method !== "POST") {
+
     return res.status(405).json({
       message: "Method not allowed",
     });
@@ -34,65 +48,87 @@ module.exports = async (req, res) => {
       table,
     } = req.body;
 
+    // =====================================
+    // VALIDASI
+    // =====================================
+
     if (!table) {
+
       return res.status(400).json({
         message: "Tabel belum dipilih",
       });
     }
 
     if (!data || data.length === 0) {
+
       return res.status(400).json({
         message: "Data kosong",
       });
     }
 
-    // ====================================
-    // AMBIL STRUKTUR KOLOM DARI SUPABASE
-    // ====================================
+    // =====================================
+    // AMBIL KOLOM DB
+    // =====================================
 
-    const { data: columnsData, error: columnError } =
-      await supabase.rpc("get_table_columns", {
+    const {
+      data: columnsData,
+      error: columnError,
+    } = await supabase.rpc(
+      "get_table_columns",
+      {
         p_table_name: table,
-      });
+      }
+    );
 
     if (columnError) {
+
       return res.status(500).json({
         message: "Gagal ambil struktur tabel",
         error: columnError.message,
       });
     }
 
-    // ambil nama kolom
-    const dbColumns = columnsData.map(
-      (c) => c.column_name
-    );
+    const dbColumns =
+      columnsData.map(
+        (c) => c.column_name
+      );
 
     // exclude auto column
-    const insertColumns = dbColumns.filter(
-      (c) => c !== "id" && c !== "created_at"
-    );
+    const insertColumns =
+      dbColumns.filter(
+        (c) =>
+          c !== "id" &&
+          c !== "created_at"
+      );
 
-    // ====================================
+    // =====================================
     // VALIDASI JUMLAH KOLOM
-    // ====================================
+    // =====================================
 
-    const excelColumns = Object.keys(data[0]);
+    const excelColumns =
+      Object.keys(data[0]);
 
-    if (excelColumns.length !== insertColumns.length) {
+    if (
+      excelColumns.length !==
+      insertColumns.length
+    ) {
 
       return res.status(400).json({
         message:
-          `Jumlah kolom tidak cocok. Excel: ${excelColumns.length}, DB: ${insertColumns.length}`,
+          `Jumlah kolom tidak cocok. ` +
+          `Excel: ${excelColumns.length}, ` +
+          `DB: ${insertColumns.length}`,
       });
     }
 
-    // ====================================
-    // FORMAT TANGGAL
-    // ====================================
+    // =====================================
+    // FORMAT CREATED_AT
+    // =====================================
 
     const now = new Date();
 
-    const pad = (n) => String(n).padStart(2, "0");
+    const pad = (n) =>
+      String(n).padStart(2, "0");
 
     const created_at =
       `${now.getFullYear()}-` +
@@ -110,46 +146,52 @@ module.exports = async (req, res) => {
       `${pad(now.getMinutes())}` +
       `${pad(now.getSeconds())}`;
 
-    // ====================================
-    // MAPPING DATA
-    // ====================================
+    // =====================================
+    // MAPPING
+    // =====================================
 
-    const finalData = data.map((row, index) => {
+    const finalData = data.map(
+      (row, index) => {
 
-      const values = Object.values(row);
+        const obj = {};
 
-      const obj = {};
+        insertColumns.forEach(
+          (col, i) => {
 
-      // mapping berdasarkan urutan
-      insertColumns.forEach((col, i) => {
-        obj[col] = values[i];
-      });
+            obj[col] =
+              row[`COL_${i}`];
+          }
+        );
 
-      // ambil kolom pertama excel
-      const firstValue = values[0];
+        // ambil kolom pertama
+        const firstValue =
+          row["COL_0"];
 
-      // format jadi angka aja
-      const cleanedFirstValue = String(firstValue)
-        .replace(/[^0-9]/g, "");
+        const cleaned =
+          String(firstValue)
+            .replace(/[^0-9]/g, "");
 
-      // id custom
-      obj.id =
-        created_at_id +
-        cleanedFirstValue +
-        String(index + 1).padStart(3, "0");
+        obj.id =
+          created_at_id +
+          cleaned +
+          String(index + 1)
+            .padStart(3, "0");
 
-      obj.created_at = created_at;
+        obj.created_at =
+          created_at;
 
-      return obj;
-    });
+        return obj;
+      }
+    );
 
-    // ====================================
+    // =====================================
     // INSERT
-    // ====================================
+    // =====================================
 
-    const { error } = await supabase
-      .from(table)
-      .insert(finalData);
+    const { error } =
+      await supabase
+        .from(table)
+        .insert(finalData);
 
     if (error) {
 
@@ -162,7 +204,8 @@ module.exports = async (req, res) => {
     }
 
     res.json({
-      message: "Data berhasil disimpan",
+      message:
+        "Data berhasil disimpan",
       total: finalData.length,
     });
 
