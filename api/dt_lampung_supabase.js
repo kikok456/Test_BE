@@ -10,6 +10,65 @@ const supabase =
     process.env.SUPABASE_ANON_KEY
   );
 
+// =====================================
+// FORMAT EXCEL DATE
+// =====================================
+
+function excelDateToJSDate(
+  serial
+) {
+
+  // kalau sudah string tanggal
+  if (
+    isNaN(serial)
+  ) {
+    return serial;
+  }
+
+  const utc_days =
+    Math.floor(
+      serial - 25569
+    );
+
+  const utc_value =
+    utc_days * 86400;
+
+  const date_info =
+    new Date(
+      utc_value * 1000
+    );
+
+  return date_info
+    .toISOString()
+    .split("T")[0];
+}
+
+// =====================================
+// PARSE RUPIAH
+// =====================================
+
+function parseRupiah(
+  value
+) {
+
+  if (!value) {
+    return 0;
+  }
+
+  return Number(
+    String(value)
+
+      // hapus titik ribuan
+      .replace(/\./g, "")
+
+      // koma jadi titik
+      .replace(",", ".")
+
+      // sisakan angka & titik
+      .replace(/[^\d.]/g, "")
+  ) || 0;
+}
+
 module.exports = async (
   req,
   res
@@ -22,7 +81,10 @@ module.exports = async (
 
   try {
 
-    // ambil semua data
+    // =================================
+    // AMBIL DATA
+    // =================================
+
     const {
       data,
       error,
@@ -40,44 +102,86 @@ module.exports = async (
         });
     }
 
-    // group by nama_barang
+    // =================================
+    // FIX DATE
+    // =================================
+
+    const fixedData =
+      data.map((row) => ({
+
+        ...row,
+
+        waktu_pengeluaran:
+          excelDateToJSDate(
+            row.waktu_pengeluaran
+          ),
+      }));
+
+    // =================================
+    // GROUP BY NAMA BARANG
+    // =================================
+
     const grouped = {};
 
-    data.forEach((row) => {
+    fixedData.forEach(
+      (row) => {
 
-      const key =
-        row.nama_barang;
+        const key =
+          row.nama_barang;
 
-      if (!grouped[key]) {
+        if (
+          !grouped[key]
+        ) {
 
-        grouped[key] = [];
+          grouped[key] =
+            [];
+        }
+
+        grouped[key].push(
+          row
+        );
       }
+    );
 
-      grouped[key].push(row);
-    });
+    // =================================
+    // SUMMARY
+    // =================================
 
-    // summary
     const result =
-      Object.keys(grouped).map(
-        (nama_barang) => {
+      Object.keys(
+        grouped
+      ).map(
+        (
+          nama_barang
+        ) => {
 
           const items =
             grouped[
               nama_barang
             ];
 
+          // ===========================
+          // PARSE HARGA
+          // ===========================
+
           const hargaList =
             items.map(
               (x) =>
-                Number(
+                parseRupiah(
                   x.harga_satuan
-                ) || 0
+                )
             );
 
-          // cari pembelian terakhir
+          // ===========================
+          // PEMBELIAN TERAKHIR
+          // ===========================
+
           const latest =
             items.sort(
-              (a, b) =>
+              (
+                a,
+                b
+              ) =>
                 new Date(
                   b.waktu_pengeluaran
                 ) -
@@ -109,11 +213,19 @@ module.exports = async (
         }
       );
 
-    return res.json(result);
+    // =================================
+    // RESPONSE
+    // =================================
+
+    return res.json(
+      result
+    );
 
   } catch (err) {
 
-    console.error(err);
+    console.error(
+      err
+    );
 
     return res
       .status(500)
