@@ -107,6 +107,8 @@ module.exports = async (req, res) => {
 
     const excelColumns =
       Object.keys(data[0]);
+    console.log("EXCEL COLUMNS:", excelColumns);
+console.log("DB COLUMNS:", insertColumns);
 
     if (
       excelColumns.length !==
