@@ -8,7 +8,6 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-
 module.exports = async (req, res) => {
 
   // =========================
@@ -18,15 +17,11 @@ module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // handle preflight
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-
-  // POST only
   if (req.method !== "POST") {
-
     return res.status(405).json({
       message: "Method not allowed",
     });
@@ -39,26 +34,122 @@ module.exports = async (req, res) => {
       table,
     } = req.body;
 
-    // validasi tabel
     if (!table) {
-
       return res.status(400).json({
         message: "Tabel belum dipilih",
       });
     }
 
-    // validasi data
     if (!data || data.length === 0) {
-
       return res.status(400).json({
         message: "Data kosong",
       });
     }
 
-    // bulk insert
+    // ====================================
+    // AMBIL STRUKTUR KOLOM DARI SUPABASE
+    // ====================================
+
+    const { data: columnsData, error: columnError } =
+      await supabase.rpc("get_table_columns", {
+        p_table_name: table,
+      });
+
+    if (columnError) {
+      return res.status(500).json({
+        message: "Gagal ambil struktur tabel",
+        error: columnError.message,
+      });
+    }
+
+    // ambil nama kolom
+    const dbColumns = columnsData.map(
+      (c) => c.column_name
+    );
+
+    // exclude auto column
+    const insertColumns = dbColumns.filter(
+      (c) => c !== "id" && c !== "created_at"
+    );
+
+    // ====================================
+    // VALIDASI JUMLAH KOLOM
+    // ====================================
+
+    const excelColumns = Object.keys(data[0]);
+
+    if (excelColumns.length !== insertColumns.length) {
+
+      return res.status(400).json({
+        message:
+          `Jumlah kolom tidak cocok. Excel: ${excelColumns.length}, DB: ${insertColumns.length}`,
+      });
+    }
+
+    // ====================================
+    // FORMAT TANGGAL
+    // ====================================
+
+    const now = new Date();
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    const created_at =
+      `${now.getFullYear()}-` +
+      `${pad(now.getMonth() + 1)}-` +
+      `${pad(now.getDate())} ` +
+      `${pad(now.getHours())}:` +
+      `${pad(now.getMinutes())}:` +
+      `${pad(now.getSeconds())}`;
+
+    const created_at_id =
+      `${now.getFullYear()}` +
+      `${pad(now.getMonth() + 1)}` +
+      `${pad(now.getDate())}` +
+      `${pad(now.getHours())}` +
+      `${pad(now.getMinutes())}` +
+      `${pad(now.getSeconds())}`;
+
+    // ====================================
+    // MAPPING DATA
+    // ====================================
+
+    const finalData = data.map((row, index) => {
+
+      const values = Object.values(row);
+
+      const obj = {};
+
+      // mapping berdasarkan urutan
+      insertColumns.forEach((col, i) => {
+        obj[col] = values[i];
+      });
+
+      // ambil kolom pertama excel
+      const firstValue = values[0];
+
+      // format jadi angka aja
+      const cleanedFirstValue = String(firstValue)
+        .replace(/[^0-9]/g, "");
+
+      // id custom
+      obj.id =
+        created_at_id +
+        cleanedFirstValue +
+        String(index + 1).padStart(3, "0");
+
+      obj.created_at = created_at;
+
+      return obj;
+    });
+
+    // ====================================
+    // INSERT
+    // ====================================
+
     const { error } = await supabase
       .from(table)
-      .insert(data);
+      .insert(finalData);
 
     if (error) {
 
@@ -72,6 +163,7 @@ module.exports = async (req, res) => {
 
     res.json({
       message: "Data berhasil disimpan",
+      total: finalData.length,
     });
 
   } catch (err) {
@@ -80,6 +172,7 @@ module.exports = async (req, res) => {
 
     res.status(500).json({
       message: "Server error",
+      error: err.message,
     });
   }
 };
