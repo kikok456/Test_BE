@@ -47,26 +47,100 @@ function excelDateToJSDate(
 // PARSE RUPIAH
 // =====================================
 
-function parseRupiah(
-  value
-) {
+function parseRupiah(value) {
+
+  // kalau sudah number
+  if (typeof value === "number") {
+    return value;
+  }
 
   if (!value) {
     return 0;
   }
 
-  return Number(
+  let str =
     String(value)
+      .trim();
 
-      // hapus titik ribuan
+  // hapus Rp dan spasi
+  str = str
+    .replace(/Rp/gi, "")
+    .replace(/\s/g, "");
+
+  // =========================
+  // FORMAT:
+  // 10,000
+  // 1,000,000
+  // =========================
+
+  if (
+    /^\d{1,3}(,\d{3})+$/.test(
+      str
+    )
+  ) {
+
+    str =
+      str.replace(
+        /,/g,
+        ""
+      );
+  }
+
+  // =========================
+  // FORMAT:
+  // 10.000
+  // 1.000.000
+  // =========================
+
+  else if (
+    /^\d{1,3}(\.\d{3})+$/.test(
+      str
+    )
+  ) {
+
+    str =
+      str.replace(
+        /\./g,
+        ""
+      );
+  }
+
+  // =========================
+  // FORMAT:
+  // 10.000,50
+  // =========================
+
+  else if (
+    str.includes(".") &&
+    str.includes(",")
+  ) {
+
+    str = str
       .replace(/\./g, "")
+      .replace(",", ".");
+  }
 
-      // koma jadi titik
-      .replace(",", ".")
+  // =========================
+  // FORMAT:
+  // 10000,50
+  // =========================
 
-      // sisakan angka & titik
-      .replace(/[^\d.]/g, "")
-  ) || 0;
+  else if (
+    /^\d+,\d+$/.test(
+      str
+    )
+  ) {
+
+    str =
+      str.replace(
+        ",",
+        "."
+      );
+  }
+
+  return (
+    Number(str) || 0
+  );
 }
 
 module.exports = async (
